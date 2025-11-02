@@ -1,4 +1,4 @@
-package src.com.itu.ETU003222.annotation;
+package com.itu.ETU003222.annotation;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
