@@ -5,6 +5,7 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 import java.util.HashMap;
 
+import com.itu.ETU003222.model.ModelView;
 public class FrontServlet extends HttpServlet {
     
     private HashMap<String, Mapping> routes = new HashMap<>();
@@ -39,6 +40,16 @@ public class FrontServlet extends HttpServlet {
             try {
                 // Invoquer la méthode par réflexion
                 Object result = Invoker.invoke(mapping);
+                
+                // Si le résultat est un ModelView, dispatcher vers la vue
+                if (result instanceof ModelView) {
+                    ModelView modelView = (ModelView) result;
+                    String view = modelView.getView();
+                    
+                    RequestDispatcher dispatcher = request.getRequestDispatcher(view);
+                    dispatcher.forward(request, response);
+                    return;
+                }
                 
                 // Afficher les informations
                 response.setContentType("text/html");
