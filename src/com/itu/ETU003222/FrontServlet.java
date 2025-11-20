@@ -4,6 +4,7 @@ import java.io.*;
 import javax.servlet.*;
 import javax.servlet.http.*;
 import java.util.HashMap;
+import java.util.Map;
 
 import com.itu.ETU003222.model.ModelView;
 public class FrontServlet extends HttpServlet {
@@ -45,6 +46,11 @@ public class FrontServlet extends HttpServlet {
                 if (result instanceof ModelView) {
                     ModelView modelView = (ModelView) result;
                     String view = modelView.getView();
+                    
+                    // Transférer toutes les données du ModelView vers les attributs de la requête
+                    for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
+                        request.setAttribute(entry.getKey(), entry.getValue());
+                    }
                     
                     RequestDispatcher dispatcher = request.getRequestDispatcher(view);
                     dispatcher.forward(request, response);
