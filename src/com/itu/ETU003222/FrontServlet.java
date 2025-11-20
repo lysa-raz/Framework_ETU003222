@@ -36,13 +36,28 @@ public class FrontServlet extends HttpServlet {
         // 1. Vérifier si c'est une route mappée vers un controller
         if (routes.containsKey(resourcePath)) {
             Mapping mapping = routes.get(resourcePath);
-            response.setContentType("text/html");
-            PrintWriter out = response.getWriter();
-            out.println("<html><body>");
-            out.println("<h1>Route trouvée</h1>");
-            out.println("<p>Classe : " + mapping.getClassName() + "</p>");
-            out.println("<p>Méthode : " + mapping.getMethodName() + "</p>");
-            out.println("</body></html>");
+            try {
+                // Invoquer la méthode par réflexion
+                Object result = Invoker.invoke(mapping);
+                
+                // Afficher les informations
+                response.setContentType("text/html");
+                PrintWriter out = response.getWriter();
+                out.println("<html><body>");
+                out.println("<h3>Classe : " + mapping.getClassName() + "</h3>");
+                out.println("<h3>Méthode : " + mapping.getMethodName() + "</h3>");
+                
+                // Si le résultat est un String, l'afficher aussi
+                if (result instanceof String) {
+                    out.println("<hr>");
+                    out.println("<h4>Résultat :</h4>");
+                    out.println(result);
+                }
+                
+                out.println("</body></html>");
+            } catch (Exception e) {
+                throw new ServletException("Erreur lors de l'invocation de la méthode", e);
+            }
             return;
         }
 
