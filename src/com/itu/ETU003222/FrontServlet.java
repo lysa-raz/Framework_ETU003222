@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.itu.ETU003222.model.ModelView;
+import com.itu.ETU003222.model.Mapping;
+
 public class FrontServlet extends HttpServlet {
     
     private HashMap<String, Mapping> routes = new HashMap<>();
@@ -35,50 +37,25 @@ public class FrontServlet extends HttpServlet {
         String contextPath = request.getContextPath();
         String resourcePath = requestURI.substring(contextPath.length());
 
-        // 1. Vérifier si c'est une route mappée vers un controller
+        // 1. Vérifier si c'est une route exacte
         if (routes.containsKey(resourcePath)) {
             Mapping mapping = routes.get(resourcePath);
-            try {
-                // Invoquer la méthode par réflexion
-                Object result = Invoker.invoke(mapping);
-                
-                // Si le résultat est un ModelView, dispatcher vers la vue
-                if (result instanceof ModelView) {
-                    ModelView modelView = (ModelView) result;
-                    String view = modelView.getView();
-                    
-                    // Transférer toutes les données du ModelView vers les attributs de la requête
-                    for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
-                        request.setAttribute(entry.getKey(), entry.getValue());
-                    }
-                    
-                    RequestDispatcher dispatcher = request.getRequestDispatcher(view);
-                    dispatcher.forward(request, response);
-                    return;
-                }
-                
-                // Afficher les informations
-                response.setContentType("text/html");
-                PrintWriter out = response.getWriter();
-                out.println("<html><body>");
-                out.println("<h3>Classe : " + mapping.getClassName() + "</h3>");
-                out.println("<h3>Méthode : " + mapping.getMethodName() + "</h3>");
-                
-                // Si le résultat est un String, l'afficher aussi
-                if (result instanceof String) {
-                    out.println("<hr>");
-                    out.println("<h4>Résultat :</h4>");
-                    out.println(result);
-                }
-                
-                out.println("</body></html>");
-            } catch (Exception e) {
-                throw new ServletException("Erreur lors de l'invocation de la méthode", e);
-            }
+            handleMapping(mapping, request, response, null);
             return;
         }
+        
+        // 2. Vérifier si l'URL correspond à un pattern avec paramètres
+        for (Map.Entry<String, Mapping> entry : routes.entrySet()) {
+            Mapping mapping = entry.getValue();
+            if (mapping.matches(resourcePath)) {
+                // Extraire les paramètres
+                Map<String, String> params = mapping.extractParams(resourcePath);
+                handleMapping(mapping, request, response, params);
+                return;
+            }
+        }
 
-        // 2. Vérifier si c'est un fichier statique existant
+        // 3. Vérifier si c'est un fichier statique existant
         try {
             java.net.URL resource = getServletContext().getResource(resourcePath);
             if (resource != null) {
@@ -92,12 +69,73 @@ public class FrontServlet extends HttpServlet {
             throw new ServletException("Erreur lors de la vérification de la ressource : " + resourcePath, e);
         }
 
-        // 3. URL non trouvée - gérée par le framework
+        // 4. URL non trouvée
         response.setContentType("text/html");
         PrintWriter out = response.getWriter();
         out.println("<html><body>");
         out.println("<h1>FrontServlet</h1>");
         out.println("<p>URL non trouvée, gérée par le framework : " + resourcePath + "</p>");
         out.println("</body></html>");
+    }
+
+    // Méthode pour gérer l'invocation du mapping
+    private void handleMapping(Mapping mapping, HttpServletRequest request, 
+                            HttpServletResponse response, Map<String, String> params) 
+            throws ServletException, IOException {
+        try {
+            // Si des paramètres existent, les ajouter aux attributs de la requête
+            if (params != null && !params.isEmpty()) {
+                for (Map.Entry<String, String> param : params.entrySet()) {
+                    request.setAttribute(param.getKey(), param.getValue());
+                }
+            }
+            
+            // Invoquer la méthode par réflexion
+            Object result = Invoker.invoke(mapping);
+            
+            // Si le résultat est un ModelView, dispatcher vers la vue
+            if (result instanceof ModelView) {
+                ModelView modelView = (ModelView) result;
+                String view = modelView.getView();
+                
+                // Transférer toutes les données du ModelView vers les attributs de la requête
+                for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
+                    request.setAttribute(entry.getKey(), entry.getValue());
+                }
+                
+                RequestDispatcher dispatcher = request.getRequestDispatcher(view);
+                dispatcher.forward(request, response);
+                return;
+            }
+            
+            // Afficher les informations
+            response.setContentType("text/html");
+            PrintWriter out = response.getWriter();
+            out.println("<html><body>");
+            out.println("<h3>Classe : " + mapping.getClassName() + "</h3>");
+            out.println("<h3>Méthode : " + mapping.getMethodName() + "</h3>");
+            
+            // Afficher les paramètres extraits
+            if (params != null && !params.isEmpty()) {
+                out.println("<hr>");
+                out.println("<h4>Paramètres extraits :</h4>");
+                out.println("<ul>");
+                for (Map.Entry<String, String> param : params.entrySet()) {
+                    out.println("<li><strong>" + param.getKey() + "</strong> = " + param.getValue() + "</li>");
+                }
+                out.println("</ul>");
+            }
+            
+            // Si le résultat est un String, l'afficher aussi
+            if (result instanceof String) {
+                out.println("<hr>");
+                out.println("<h4>Résultat :</h4>");
+                out.println(result);
+            }
+            
+            out.println("</body></html>");
+        } catch (Exception e) {
+            throw new ServletException("Erreur lors de l'invocation de la méthode", e);
+        }
     }
 }
