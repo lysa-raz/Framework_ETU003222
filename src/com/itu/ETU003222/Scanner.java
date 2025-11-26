@@ -7,6 +7,7 @@ import java.util.HashMap;
 
 import com.itu.ETU003222.annotation.UrlMapping;
 import com.itu.ETU003222.annotation.AnnotationController;
+import com.itu.ETU003222.model.Mapping;
 
 public class Scanner {
     
@@ -45,7 +46,8 @@ public class Scanner {
             if (method.isAnnotationPresent(UrlMapping.class)) {
                 UrlMapping annotation = method.getAnnotation(UrlMapping.class);
                 String url = annotation.value();
-                routes.put(url, new Mapping(className, method.getName()));
+                // Passer l'URL pattern comme 3ème paramètre
+                routes.put(url, new Mapping(className, method.getName(), url));
             }
         }
     }
