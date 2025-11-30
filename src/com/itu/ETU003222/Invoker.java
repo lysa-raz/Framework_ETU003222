@@ -3,9 +3,9 @@ package com.itu.ETU003222;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import javax.servlet.http.HttpServletRequest;
-import java.util.Enumeration;
 
 import com.itu.ETU003222.model.Mapping;
+import com.itu.ETU003222.annotation.RequestParam;
 
 public class Invoker {
     
@@ -50,38 +50,31 @@ public class Invoker {
         // Préparer les arguments pour l'invocation
         Object[] args = new Object[parameters.length];
         
-        // Récupérer tous les paramètres de la requête
-        Enumeration<String> paramNames = request.getParameterNames();
-        
-        // Si on a exactement le même nombre de paramètres dans la requête que dans la méthode
-        int paramCount = 0;
-        String firstParamName = null;
-        while (paramNames.hasMoreElements()) {
-            String name = paramNames.nextElement();
-            if (paramCount == 0) {
-                firstParamName = name;
-            }
-            paramCount++;
-        }
-        
-        // Pour chaque paramètre de la méthode, prendre les valeurs dans l'ordre
         for (int i = 0; i < parameters.length; i++) {
             Parameter param = parameters[i];
-            String paramValue = null;
+            String paramName;
             
-            // Essayer de récupérer par le nom du paramètre (peut être arg0, arg1, etc.)
-            paramValue = request.getParameter(param.getName());
-            
-            // Si pas trouvé et qu'on a un seul paramètre, prendre le premier paramètre de la requête
-            if (paramValue == null && parameters.length == 1 && firstParamName != null) {
-                paramValue = request.getParameter(firstParamName);
+            // Vérifier si le paramètre a l'annotation @RequestParam
+            if (param.isAnnotationPresent(RequestParam.class)) {
+                RequestParam requestParam = param.getAnnotation(RequestParam.class);
+                paramName = requestParam.value();
+                
+                // Si value() est vide, utiliser le nom du paramètre
+                if (paramName == null || paramName.isEmpty()) {
+                    paramName = param.getName();
+                }
+            } else {
+                // Sinon, utiliser le nom du paramètre tel quel
+                paramName = param.getName();
             }
+            
+            String paramValue = request.getParameter(paramName);
             
             // Convertir la valeur selon le type du paramètre
             Class<?> paramType = param.getType();
             
             if (paramValue == null) {
-                throw new IllegalArgumentException("Paramètre manquant pour : " + param.getName() + " (type: " + paramType.getName() + ")");
+                throw new IllegalArgumentException("Paramètre manquant pour : " + paramName + " (type: " + paramType.getName() + ")");
             }
             
             args[i] = convertParameter(paramValue, paramType);
