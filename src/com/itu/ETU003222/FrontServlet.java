@@ -83,15 +83,30 @@ public class FrontServlet extends HttpServlet {
                             HttpServletResponse response, Map<String, String> params) 
             throws ServletException, IOException {
         try {
-            // Si des paramètres existent, les ajouter aux attributs de la requête
+            // Si des paramètres existent, les ajouter comme paramètres de requête
             if (params != null && !params.isEmpty()) {
+                // Créer un wrapper pour ajouter les paramètres extraits
+                HttpServletRequest wrappedRequest = new HttpServletRequestWrapper(request) {
+                    @Override
+                    public String getParameter(String name) {
+                        // D'abord chercher dans les paramètres extraits de l'URL
+                        if (params.containsKey(name)) {
+                            return params.get(name);
+                        }
+                        // Sinon, utiliser les paramètres de requête normaux
+                        return super.getParameter(name);
+                    }
+                };
+                request = wrappedRequest;
+                
+                // Aussi les ajouter aux attributs pour compatibilité
                 for (Map.Entry<String, String> param : params.entrySet()) {
                     request.setAttribute(param.getKey(), param.getValue());
                 }
             }
             
-            // Invoquer la méthode par réflexion
-            Object result = Invoker.invoke(mapping);
+            // Invoquer la méthode par réflexion en passant la requête
+            Object result = Invoker.invoke(mapping, request);
             
             // Si le résultat est un ModelView, dispatcher vers la vue
             if (result instanceof ModelView) {
