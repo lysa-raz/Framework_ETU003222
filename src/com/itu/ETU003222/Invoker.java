@@ -52,9 +52,11 @@ public class Invoker {
         
         for (int i = 0; i < parameters.length; i++) {
             Parameter param = parameters[i];
-            String paramName;
+            String paramValue = null;
+            String paramName = null;
+            Class<?> paramType = param.getType();
             
-            // Vérifier si le paramètre a l'annotation @RequestParam
+            // CAS 1 : Vérifier si le paramètre a l'annotation @RequestParam
             if (param.isAnnotationPresent(RequestParam.class)) {
                 RequestParam requestParam = param.getAnnotation(RequestParam.class);
                 paramName = requestParam.value();
@@ -63,20 +65,39 @@ public class Invoker {
                 if (paramName == null || paramName.isEmpty()) {
                     paramName = param.getName();
                 }
-            } else {
-                // Sinon, utiliser le nom du paramètre tel quel
-                paramName = param.getName();
+                
+                // Récupérer la valeur depuis request.getParameter() avec le nom spécifié dans @RequestParam
+                paramValue = request.getParameter(paramName);
+                
+                if (paramValue == null) {
+                    throw new IllegalArgumentException(
+                        "Paramètre @RequestParam manquant : " + paramName + 
+                        " (type: " + paramType.getName() + ")"
+                    );
+                }
             }
-            
-            String paramValue = request.getParameter(paramName);
+            // CAS 2 : Vérifier si c'est un paramètre extrait de l'URL (pattern avec {})
+            // Ces paramètres sont déjà dans request.getParameter() grâce au wrapper dans FrontServlet
+            else {
+                paramName = param.getName();
+                
+                // Vérifier d'abord si c'est un paramètre de query string normal (?name=value)
+                paramValue = request.getParameter(paramName);
+                
+                // CAS 3 : Si null, c'est peut-être un paramètre d'URL pattern
+                // Le wrapper dans FrontServlet aura déjà ajouté ces valeurs
+                // Donc si paramValue est toujours null ici, c'est vraiment manquant
+                
+                if (paramValue == null) {
+                    throw new IllegalArgumentException(
+                        "Paramètre manquant : " + paramName + 
+                        " (type: " + paramType.getName() + 
+                        "). Vérifiez que le nom du paramètre correspond exactement à celui de l'URL."
+                    );
+                }
+            }
             
             // Convertir la valeur selon le type du paramètre
-            Class<?> paramType = param.getType();
-            
-            if (paramValue == null) {
-                throw new IllegalArgumentException("Paramètre manquant pour : " + paramName + " (type: " + paramType.getName() + ")");
-            }
-            
             args[i] = convertParameter(paramValue, paramType);
         }
         

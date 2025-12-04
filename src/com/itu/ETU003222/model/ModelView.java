@@ -29,4 +29,9 @@ public class ModelView {
     public void setView(String view) {
         this.view = view;
     }
+
+    // Méthode pour ajouter des données
+    public void addData(String key, Object value) {
+        this.data.put(key, value);
+    }
 }
