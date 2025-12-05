@@ -9,7 +9,6 @@ import java.lang.annotation.Target;
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface UrlMapping {
-	String value() default "";
-	String method() default "GET";
+public @interface PostMapping {
+    String url() default "";
 }
