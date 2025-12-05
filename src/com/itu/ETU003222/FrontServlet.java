@@ -36,10 +36,19 @@ public class FrontServlet extends HttpServlet {
         String requestURI = request.getRequestURI();
         String contextPath = request.getContextPath();
         String resourcePath = requestURI.substring(contextPath.length());
+        String httpMethod = request.getMethod(); // GET, POST, etc.
 
         // 1. Vérifier si c'est une route exacte
         if (routes.containsKey(resourcePath)) {
             Mapping mapping = routes.get(resourcePath);
+            
+            // Vérifier si la méthode HTTP correspond
+            if (!mapping.getHttpMethod().equalsIgnoreCase(httpMethod)) {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, 
+                    "Méthode " + httpMethod + " non autorisée pour cette URL. Utilisez " + mapping.getHttpMethod());
+                return;
+            }
+            
             handleMapping(mapping, request, response, null);
             return;
         }

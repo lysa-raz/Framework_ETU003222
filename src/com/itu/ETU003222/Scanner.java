@@ -1,54 +1,104 @@
 package com.itu.ETU003222;
 
 import java.io.File;
-import java.lang.reflect.Method;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
-import com.itu.ETU003222.annotation.UrlMapping;
 import com.itu.ETU003222.annotation.AnnotationController;
+import com.itu.ETU003222.annotation.UrlMapping;
+import com.itu.ETU003222.annotation.GetMapping;
+import com.itu.ETU003222.annotation.PostMapping;
 import com.itu.ETU003222.model.Mapping;
+
+import java.lang.reflect.Method;
 
 public class Scanner {
     
     public static HashMap<String, Mapping> scanControllers(String packageName) throws Exception {
-        HashMap<String, Mapping> routes = new HashMap<>();
+        HashMap<String, Mapping> mappings = new HashMap<>();
         
-        String path = packageName.replace(".", "/");
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        URL url = loader.getResource(path);
-
-        if (url == null) {
-            throw new Exception("Package introuvable : " + packageName);
-        }
-
-        File folder = new File(url.toURI());
-        File[] files = folder.listFiles();
+        // Récupérer toutes les classes du package
+        List<Class<?>> classes = getClasses(packageName);
         
-        if (files != null) {
-            for (File file : files) {
-                if (file.getName().endsWith(".class")) {
-                    String className = packageName + "." + file.getName().replace(".class", "");
-                    Class<?> cls = Class.forName(className);
-
-                    if (cls.isAnnotationPresent(AnnotationController.class)) {
-                        scanMethods(cls, className, routes);
+        for (Class<?> clazz : classes) {
+            // Vérifier si la classe a l'annotation @AnnotationController
+            if (clazz.isAnnotationPresent(AnnotationController.class)) {
+                // Scanner toutes les méthodes de cette classe
+                Method[] methods = clazz.getDeclaredMethods();
+                
+                for (Method method : methods) {
+                    // Vérifier si la méthode a l'annotation @UrlMapping
+                    if (method.isAnnotationPresent(UrlMapping.class)) {
+                        UrlMapping urlMapping = method.getAnnotation(UrlMapping.class);
+                        String url = urlMapping.value();
+                        
+                        Mapping mapping = new Mapping();
+                        mapping.setClassName(clazz.getName());
+                        mapping.setMethodName(method.getName());
+                        mapping.setHttpMethod(urlMapping.method());
+                        
+                        mappings.put(url, mapping);
+                    }
+                    
+                    // Vérifier si la méthode a l'annotation @GetMapping
+                    if (method.isAnnotationPresent(GetMapping.class)) {
+                        GetMapping getMapping = method.getAnnotation(GetMapping.class);
+                        String url = getMapping.url();
+                        
+                        Mapping mapping = new Mapping();
+                        mapping.setClassName(clazz.getName());
+                        mapping.setMethodName(method.getName());
+                        mapping.setHttpMethod("GET");
+                        
+                        mappings.put(url, mapping);
+                    }
+                    
+                    // Vérifier si la méthode a l'annotation @PostMapping
+                    if (method.isAnnotationPresent(PostMapping.class)) {
+                        PostMapping postMapping = method.getAnnotation(PostMapping.class);
+                        String url = postMapping.url();
+                        
+                        Mapping mapping = new Mapping();
+                        mapping.setClassName(clazz.getName());
+                        mapping.setMethodName(method.getName());
+                        mapping.setHttpMethod("POST");
+                        
+                        mappings.put(url, mapping);
                     }
                 }
             }
         }
         
-        return routes;
+        return mappings;
     }
     
-    private static void scanMethods(Class<?> cls, String className, HashMap<String, Mapping> routes) {
-        for (Method method : cls.getDeclaredMethods()) {
-            if (method.isAnnotationPresent(UrlMapping.class)) {
-                UrlMapping annotation = method.getAnnotation(UrlMapping.class);
-                String url = annotation.value();
-                // Passer l'URL pattern comme 3ème paramètre
-                routes.put(url, new Mapping(className, method.getName(), url));
+    private static List<Class<?>> getClasses(String packageName) throws Exception {
+        List<Class<?>> classes = new ArrayList<>();
+        String path = packageName.replace('.', '/');
+        
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        URL resource = classLoader.getResource(path);
+        
+        if (resource == null) {
+            throw new Exception("Package non trouvé : " + packageName);
+        }
+        
+        File directory = new File(resource.getFile());
+        
+        if (directory.exists()) {
+            File[] files = directory.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.getName().endsWith(".class")) {
+                        String className = packageName + '.' + file.getName().substring(0, file.getName().length() - 6);
+                        classes.add(Class.forName(className));
+                    }
+                }
             }
         }
+        
+        return classes;
     }
 }

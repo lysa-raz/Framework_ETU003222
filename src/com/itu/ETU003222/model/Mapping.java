@@ -10,6 +10,7 @@ public class Mapping {
     private String methodName;
     private String urlPattern; // Ex: "/students/{id}"
     private Pattern regex; // Pattern compilé pour matcher l'URL
+    private String httpMethod = "GET"; // Par défaut
     
     public Mapping() {
     }
@@ -81,5 +82,13 @@ public class Mapping {
     
     public Pattern getRegex() {
         return regex;
+    }
+
+    public String getHttpMethod() {
+        return httpMethod;
+    }
+
+    public void setHttpMethod(String httpMethod) {
+        this.httpMethod = httpMethod;
     }
 }
