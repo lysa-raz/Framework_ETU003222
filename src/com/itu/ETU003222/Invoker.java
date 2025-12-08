@@ -52,9 +52,32 @@ public class Invoker {
         
         for (int i = 0; i < parameters.length; i++) {
             Parameter param = parameters[i];
+            Class<?> paramType = param.getType();
+            
+            // NOUVEAU CAS : Vérifier si le paramètre est de type Map
+            if (java.util.Map.class.isAssignableFrom(paramType)) {
+                // Construire une Map à partir de tous les paramètres de la requête
+                java.util.Map<String, Object> paramMap = new java.util.HashMap<>();
+                java.util.Map<String, String[]> requestParams = request.getParameterMap();
+                
+                for (java.util.Map.Entry<String, String[]> entry : requestParams.entrySet()) {
+                    String key = entry.getKey();
+                    String[] values = entry.getValue();
+                    
+                    // Si un seul élément, mettre juste la valeur, sinon mettre le tableau
+                    if (values != null && values.length == 1) {
+                        paramMap.put(key, values[0]);
+                    } else {
+                        paramMap.put(key, values);
+                    }
+                }
+                
+                args[i] = paramMap;
+                continue;
+            }
+            
             String paramValue = null;
             String paramName = null;
-            Class<?> paramType = param.getType();
             
             // CAS 1 : Vérifier si le paramètre a l'annotation @RequestParam
             if (param.isAnnotationPresent(RequestParam.class)) {
