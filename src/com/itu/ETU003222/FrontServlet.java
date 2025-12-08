@@ -38,26 +38,33 @@ public class FrontServlet extends HttpServlet {
         String resourcePath = requestURI.substring(contextPath.length());
         String httpMethod = request.getMethod(); // GET, POST, etc.
 
-        // 1. Vérifier si c'est une route exacte
-        if (routes.containsKey(resourcePath)) {
-            Mapping mapping = routes.get(resourcePath);
-            
-            // Vérifier si la méthode HTTP correspond
-            if (!mapping.getHttpMethod().equalsIgnoreCase(httpMethod)) {
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, 
-                    "Méthode " + httpMethod + " non autorisée pour cette URL. Utilisez " + mapping.getHttpMethod());
-                return;
-            }
-            
+        // Construire la clé de recherche : METHOD:URL
+        String routeKey = httpMethod + ":" + resourcePath;
+
+        // 1. Vérifier si c'est une route exacte avec la méthode HTTP
+        if (routes.containsKey(routeKey)) {
+            Mapping mapping = routes.get(routeKey);
             handleMapping(mapping, request, response, null);
             return;
         }
         
         // 2. Vérifier si l'URL correspond à un pattern avec paramètres
         for (Map.Entry<String, Mapping> entry : routes.entrySet()) {
+            String key = entry.getKey();
             Mapping mapping = entry.getValue();
+            
+            // Extraire la méthode HTTP et l'URL depuis la clé
+            String[] parts = key.split(":", 2);
+            if (parts.length != 2) continue;
+            
+            String mappingMethod = parts[0];
+            String mappingUrl = parts[1];
+            
+            // Vérifier si la méthode HTTP correspond
+            if (!mappingMethod.equalsIgnoreCase(httpMethod)) continue;
+            
+            // Vérifier si l'URL correspond au pattern
             if (mapping.matches(resourcePath)) {
-                // Extraire les paramètres
                 Map<String, String> params = mapping.extractParams(resourcePath);
                 handleMapping(mapping, request, response, params);
                 return;

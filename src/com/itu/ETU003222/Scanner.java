@@ -33,13 +33,16 @@ public class Scanner {
                     if (method.isAnnotationPresent(UrlMapping.class)) {
                         UrlMapping urlMapping = method.getAnnotation(UrlMapping.class);
                         String url = urlMapping.value();
+                        String httpMethod = urlMapping.method();
                         
                         Mapping mapping = new Mapping();
                         mapping.setClassName(clazz.getName());
                         mapping.setMethodName(method.getName());
-                        mapping.setHttpMethod(urlMapping.method());
+                        mapping.setHttpMethod(httpMethod);
                         
-                        mappings.put(url, mapping);
+                        // Clé = URL + méthode HTTP
+                        String key = httpMethod + ":" + url;
+                        mappings.put(key, mapping);
                     }
                     
                     // Vérifier si la méthode a l'annotation @GetMapping
@@ -52,7 +55,9 @@ public class Scanner {
                         mapping.setMethodName(method.getName());
                         mapping.setHttpMethod("GET");
                         
-                        mappings.put(url, mapping);
+                        // Clé = GET + URL
+                        String key = "GET:" + url;
+                        mappings.put(key, mapping);
                     }
                     
                     // Vérifier si la méthode a l'annotation @PostMapping
@@ -65,7 +70,9 @@ public class Scanner {
                         mapping.setMethodName(method.getName());
                         mapping.setHttpMethod("POST");
                         
-                        mappings.put(url, mapping);
+                        // Clé = POST + URL
+                        String key = "POST:" + url;
+                        mappings.put(key, mapping);
                     }
                 }
             }
