@@ -8,9 +8,10 @@ import java.util.Map;
 public class Mapping {
     private String className;
     private String methodName;
-    private String urlPattern; // Ex: "/students/{id}"
-    private Pattern regex; // Pattern compilé pour matcher l'URL
-    private String httpMethod = "GET"; // Par défaut
+    private String urlPattern;
+    private Pattern regex;
+    private String httpMethod = "GET";
+    private boolean isRestApi = false; // NOUVEAU
     
     public Mapping() {
     }
@@ -22,24 +23,23 @@ public class Mapping {
         this.regex = compilePattern(urlPattern);
     }
     
-    // Convertir "/students/{id}" en regex "^/students/([^/]+)$"
     private Pattern compilePattern(String urlPattern) {
         String regexPattern = urlPattern.replaceAll("\\{[^/]+\\}", "([^/]+)");
         return Pattern.compile("^" + regexPattern + "$");
     }
     
-    // Vérifier si une URL correspond à ce mapping
     public boolean matches(String url) {
+        if (regex == null) return false;
         return regex.matcher(url).matches();
     }
     
-    // Extraire les paramètres de l'URL
     public Map<String, String> extractParams(String url) {
         Map<String, String> params = new HashMap<>();
+        if (regex == null) return params;
+        
         Matcher patternMatcher = regex.matcher(url);
         
         if (patternMatcher.matches()) {
-            // Extraire les noms des paramètres du pattern original
             java.util.regex.Pattern paramPattern = java.util.regex.Pattern.compile("\\{([^/]+)\\}");
             Matcher paramNameMatcher = paramPattern.matcher(urlPattern);
             
@@ -90,5 +90,14 @@ public class Mapping {
 
     public void setHttpMethod(String httpMethod) {
         this.httpMethod = httpMethod;
+    }
+    
+    // NOUVEAU
+    public boolean isRestApi() {
+        return isRestApi;
+    }
+    
+    public void setRestApi(boolean isRestApi) {
+        this.isRestApi = isRestApi;
     }
 }
