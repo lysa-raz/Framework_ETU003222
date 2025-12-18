@@ -10,6 +10,7 @@ import com.itu.ETU003222.annotation.AnnotationController;
 import com.itu.ETU003222.annotation.UrlMapping;
 import com.itu.ETU003222.annotation.GetMapping;
 import com.itu.ETU003222.annotation.PostMapping;
+import com.itu.ETU003222.annotation.RestApi;
 import com.itu.ETU003222.model.Mapping;
 
 import java.lang.reflect.Method;
@@ -39,6 +40,7 @@ public class Scanner {
                         mapping.setClassName(clazz.getName());
                         mapping.setMethodName(method.getName());
                         mapping.setHttpMethod(httpMethod);
+                        mapping.setUrlPattern(url);
                         
                         // Clé = URL + méthode HTTP
                         String key = httpMethod + ":" + url;
@@ -54,6 +56,7 @@ public class Scanner {
                         mapping.setClassName(clazz.getName());
                         mapping.setMethodName(method.getName());
                         mapping.setHttpMethod("GET");
+                        mapping.setUrlPattern(url);
                         
                         // Clé = GET + URL
                         String key = "GET:" + url;
@@ -69,9 +72,28 @@ public class Scanner {
                         mapping.setClassName(clazz.getName());
                         mapping.setMethodName(method.getName());
                         mapping.setHttpMethod("POST");
+                        mapping.setUrlPattern(url);
                         
                         // Clé = POST + URL
                         String key = "POST:" + url;
+                        mappings.put(key, mapping);
+                    }
+                    
+                    // NOUVEAU : Vérifier si la méthode a l'annotation @RestApi
+                    if (method.isAnnotationPresent(RestApi.class)) {
+                        RestApi restApi = method.getAnnotation(RestApi.class);
+                        String url = restApi.url();
+                        String httpMethod = restApi.method();
+                        
+                        Mapping mapping = new Mapping();
+                        mapping.setClassName(clazz.getName());
+                        mapping.setMethodName(method.getName());
+                        mapping.setHttpMethod(httpMethod);
+                        mapping.setUrlPattern(url);
+                        mapping.setRestApi(true); // Marquer comme API REST
+                        
+                        // Clé = METHOD + URL
+                        String key = httpMethod + ":" + url;
                         mappings.put(key, mapping);
                     }
                 }

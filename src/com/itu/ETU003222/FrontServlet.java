@@ -8,17 +8,20 @@ import java.util.Map;
 
 import com.itu.ETU003222.model.ModelView;
 import com.itu.ETU003222.model.Mapping;
+import com.itu.ETU003222.model.ApiResponse;
+import com.google.gson.Gson;
 
 public class FrontServlet extends HttpServlet {
     
     private HashMap<String, Mapping> routes = new HashMap<>();
+    private Gson gson = new Gson(); // NOUVEAU : instance Gson
 
     @Override
     public void init() throws ServletException {
         try {
             String packageName = getServletContext().getInitParameter("controllers-package");
             if (packageName == null) {
-                packageName = "controllers"; // package par défaut
+                packageName = "controllers";
             }
             
             routes = Scanner.scanControllers(packageName);
@@ -36,9 +39,8 @@ public class FrontServlet extends HttpServlet {
         String requestURI = request.getRequestURI();
         String contextPath = request.getContextPath();
         String resourcePath = requestURI.substring(contextPath.length());
-        String httpMethod = request.getMethod(); // GET, POST, etc.
+        String httpMethod = request.getMethod();
 
-        // Construire la clé de recherche : METHOD:URL
         String routeKey = httpMethod + ":" + resourcePath;
 
         // 1. Vérifier si c'est une route exacte avec la méthode HTTP
@@ -53,17 +55,14 @@ public class FrontServlet extends HttpServlet {
             String key = entry.getKey();
             Mapping mapping = entry.getValue();
             
-            // Extraire la méthode HTTP et l'URL depuis la clé
             String[] parts = key.split(":", 2);
             if (parts.length != 2) continue;
             
             String mappingMethod = parts[0];
             String mappingUrl = parts[1];
             
-            // Vérifier si la méthode HTTP correspond
             if (!mappingMethod.equalsIgnoreCase(httpMethod)) continue;
             
-            // Vérifier si l'URL correspond au pattern
             if (mapping.matches(resourcePath)) {
                 Map<String, String> params = mapping.extractParams(resourcePath);
                 handleMapping(mapping, request, response, params);
@@ -94,42 +93,40 @@ public class FrontServlet extends HttpServlet {
         out.println("</body></html>");
     }
 
-    // Méthode pour gérer l'invocation du mapping
     private void handleMapping(Mapping mapping, HttpServletRequest request, 
                             HttpServletResponse response, Map<String, String> params) 
             throws ServletException, IOException {
         try {
-            // Si des paramètres existent, les ajouter comme paramètres de requête
             if (params != null && !params.isEmpty()) {
-                // Créer un wrapper pour ajouter les paramètres extraits
                 HttpServletRequest wrappedRequest = new HttpServletRequestWrapper(request) {
                     @Override
                     public String getParameter(String name) {
-                        // D'abord chercher dans les paramètres extraits de l'URL
                         if (params.containsKey(name)) {
                             return params.get(name);
                         }
-                        // Sinon, utiliser les paramètres de requête normaux
                         return super.getParameter(name);
                     }
                 };
                 request = wrappedRequest;
                 
-                // Aussi les ajouter aux attributs pour compatibilité
                 for (Map.Entry<String, String> param : params.entrySet()) {
                     request.setAttribute(param.getKey(), param.getValue());
                 }
             }
             
-            // Invoquer la méthode par réflexion en passant la requête
             Object result = Invoker.invoke(mapping, request);
+            
+            // NOUVEAU : Vérifier si c'est une API REST
+            if (mapping.isRestApi()) {
+                handleRestApiResponse(result, response);
+                return;
+            }
             
             // Si le résultat est un ModelView, dispatcher vers la vue
             if (result instanceof ModelView) {
                 ModelView modelView = (ModelView) result;
                 String view = modelView.getView();
                 
-                // Transférer toutes les données du ModelView vers les attributs de la requête
                 for (Map.Entry<String, Object> entry : modelView.getData().entrySet()) {
                     request.setAttribute(entry.getKey(), entry.getValue());
                 }
@@ -146,7 +143,6 @@ public class FrontServlet extends HttpServlet {
             out.println("<h3>Classe : " + mapping.getClassName() + "</h3>");
             out.println("<h3>Méthode : " + mapping.getMethodName() + "</h3>");
             
-            // Afficher les paramètres extraits
             if (params != null && !params.isEmpty()) {
                 out.println("<hr>");
                 out.println("<h4>Paramètres extraits :</h4>");
@@ -157,7 +153,6 @@ public class FrontServlet extends HttpServlet {
                 out.println("</ul>");
             }
             
-            // Si le résultat est un String, l'afficher aussi
             if (result instanceof String) {
                 out.println("<hr>");
                 out.println("<h4>Résultat :</h4>");
@@ -166,7 +161,48 @@ public class FrontServlet extends HttpServlet {
             
             out.println("</body></html>");
         } catch (Exception e) {
-            throw new ServletException("Erreur lors de l'invocation de la méthode", e);
+            // NOUVEAU : Si c'est une API REST, retourner une erreur JSON
+            if (mapping.isRestApi()) {
+                handleRestApiError(e, response);
+            } else {
+                throw new ServletException("Erreur lors de l'invocation de la méthode", e);
+            }
         }
+    }
+    
+    // NOUVEAU : Gérer les réponses REST API
+    private void handleRestApiResponse(Object result, HttpServletResponse response) throws IOException {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        
+        PrintWriter out = response.getWriter();
+        
+        // Si le résultat est déjà un ApiResponse, le convertir directement
+        if (result instanceof ApiResponse) {
+            ApiResponse apiResponse = (ApiResponse) result;
+            response.setStatus(apiResponse.getCode());
+            out.print(gson.toJson(apiResponse));
+        } 
+        // Sinon, wrapper dans un ApiResponse de succès
+        else {
+            ApiResponse apiResponse = ApiResponse.success(result);
+            response.setStatus(200);
+            out.print(gson.toJson(apiResponse));
+        }
+        
+        out.flush();
+    }
+    
+    // NOUVEAU : Gérer les erreurs REST API
+    private void handleRestApiError(Exception e, HttpServletResponse response) throws IOException {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        
+        PrintWriter out = response.getWriter();
+        
+        ApiResponse apiResponse = ApiResponse.serverError(e.getMessage());
+        response.setStatus(500);
+        out.print(gson.toJson(apiResponse));
+        out.flush();
     }
 }
