@@ -3,18 +3,22 @@ package com.itu.ETU003222;
 import java.io.*;
 import javax.servlet.*;
 import javax.servlet.http.*;
+import javax.servlet.annotation.MultipartConfig;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Collection;
 
 import com.itu.ETU003222.model.ModelView;
 import com.itu.ETU003222.model.Mapping;
 import com.itu.ETU003222.model.ApiResponse;
+import com.itu.ETU003222.model.FileUpload;
 import com.google.gson.Gson;
 
+@MultipartConfig // NOUVEAU : Active le support multipart/form-data pour upload
 public class FrontServlet extends HttpServlet {
     
     private HashMap<String, Mapping> routes = new HashMap<>();
-    private Gson gson = new Gson(); // NOUVEAU : instance Gson
+    private Gson gson = new Gson(); // instance Gson (déjà existant)
 
     @Override
     public void init() throws ServletException {
@@ -114,9 +118,15 @@ public class FrontServlet extends HttpServlet {
                 }
             }
             
+            // NOUVEAU : Extraire les fichiers uploadés si présents
+            Map<String, FileUpload> uploadedFiles = extractUploadedFiles(request);
+            if (!uploadedFiles.isEmpty()) {
+                request.setAttribute("uploadedFiles", uploadedFiles);
+            }
+            
             Object result = Invoker.invoke(mapping, request);
             
-            // NOUVEAU : Vérifier si c'est une API REST
+            // Vérifier si c'est une API REST
             if (mapping.isRestApi()) {
                 handleRestApiResponse(result, response);
                 return;
@@ -161,7 +171,6 @@ public class FrontServlet extends HttpServlet {
             
             out.println("</body></html>");
         } catch (Exception e) {
-            // NOUVEAU : Si c'est une API REST, retourner une erreur JSON
             if (mapping.isRestApi()) {
                 handleRestApiError(e, response);
             } else {
@@ -170,21 +179,86 @@ public class FrontServlet extends HttpServlet {
         }
     }
     
-    // NOUVEAU : Gérer les réponses REST API
+    // NOUVEAU : Extraire les fichiers uploadés depuis la requête
+    private Map<String, FileUpload> extractUploadedFiles(HttpServletRequest request) throws IOException, ServletException {
+        Map<String, FileUpload> files = new HashMap<>();
+        
+        // Vérifier si c'est une requête multipart/form-data
+        String contentType = request.getContentType();
+        if (contentType != null && contentType.toLowerCase().startsWith("multipart/form-data")) {
+            Collection<Part> parts = request.getParts();
+            
+            int fileIndex = 0; // NOUVEAU : Compteur pour les fichiers multiples
+            
+            for (Part part : parts) {
+                String fileName = getFileName(part);
+                
+                // Si c'est un fichier (et non un champ texte)
+                if (fileName != null && !fileName.isEmpty()) {
+                    // Lire le contenu du fichier en bytes
+                    InputStream fileContent = part.getInputStream();
+                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                    
+                    byte[] data = new byte[1024];
+                    int nRead;
+                    while ((nRead = fileContent.read(data, 0, data.length)) != -1) {
+                        buffer.write(data, 0, nRead);
+                    }
+                    
+                    buffer.flush();
+                    byte[] fileBytes = buffer.toByteArray();
+                    
+                    // Créer un objet FileUpload
+                    FileUpload fileUpload = new FileUpload(
+                        fileName,
+                        part.getContentType(),
+                        fileBytes,
+                        part.getSize()
+                    );
+                    
+                    // MODIFIÉ : Si plusieurs fichiers avec le même nom de champ, ajouter un index
+                    String partName = part.getName();
+                    String key = partName;
+                    
+                    // Si la clé existe déjà, ajouter un suffixe numérique
+                    if (files.containsKey(key)) {
+                        key = partName + "_" + fileIndex;
+                    }
+                    
+                    files.put(key, fileUpload);
+                    fileIndex++;
+                }
+            }
+        }
+        
+        return files;
+    }
+    
+    // NOUVEAU : Extraire le nom du fichier depuis Part
+    private String getFileName(Part part) {
+        String contentDisposition = part.getHeader("content-disposition");
+        if (contentDisposition != null) {
+            for (String token : contentDisposition.split(";")) {
+                if (token.trim().startsWith("filename")) {
+                    return token.substring(token.indexOf('=') + 1).trim().replace("\"", "");
+                }
+            }
+        }
+        return null;
+    }
+    
+    // Gérer les réponses REST API avec Gson
     private void handleRestApiResponse(Object result, HttpServletResponse response) throws IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         
         PrintWriter out = response.getWriter();
         
-        // Si le résultat est déjà un ApiResponse, le convertir directement
         if (result instanceof ApiResponse) {
             ApiResponse apiResponse = (ApiResponse) result;
             response.setStatus(apiResponse.getCode());
             out.print(gson.toJson(apiResponse));
-        } 
-        // Sinon, wrapper dans un ApiResponse de succès
-        else {
+        } else {
             ApiResponse apiResponse = ApiResponse.success(result);
             response.setStatus(200);
             out.print(gson.toJson(apiResponse));
@@ -193,7 +267,7 @@ public class FrontServlet extends HttpServlet {
         out.flush();
     }
     
-    // NOUVEAU : Gérer les erreurs REST API
+    // Gérer les erreurs REST API avec Gson
     private void handleRestApiError(Exception e, HttpServletResponse response) throws IOException {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
