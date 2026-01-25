@@ -9,6 +9,7 @@ import javax.servlet.http.HttpServletRequest;
 import com.itu.ETU003222.model.Mapping;
 import com.itu.ETU003222.model.FileUpload;
 import com.itu.ETU003222.annotation.RequestParam;
+import com.itu.ETU003222.annotation.Session;
 
 public class Invoker {
     
@@ -47,6 +48,17 @@ public class Invoker {
         
         Object[] args = new Object[parameters.length];
         
+        // NOUVEAU : Créer une copie de la session pour pouvoir synchroniser les changements
+        java.util.Map<String, Object> sessionCopy = new java.util.HashMap<>();
+        javax.servlet.http.HttpSession httpSession = request.getSession();
+        
+        // Copier tous les attributs de la session HTTP dans la Map
+        java.util.Enumeration<String> attributeNames = httpSession.getAttributeNames();
+        while (attributeNames.hasMoreElements()) {
+            String attrName = attributeNames.nextElement();
+            sessionCopy.put(attrName, httpSession.getAttribute(attrName));
+        }
+        
         // NOUVEAU : Récupérer les fichiers uploadés
         @SuppressWarnings("unchecked")
         java.util.Map<String, FileUpload> uploadedFiles = 
@@ -55,6 +67,18 @@ public class Invoker {
         for (int i = 0; i < parameters.length; i++) {
             Parameter param = parameters[i];
             Class<?> paramType = param.getType();
+            
+            // CAS 0 : @Session Map<String, Object> pour la gestion de session
+            if (param.isAnnotationPresent(Session.class)) {
+                if (java.util.Map.class.isAssignableFrom(paramType)) {
+                    args[i] = sessionCopy;
+                    continue;
+                } else {
+                    throw new IllegalArgumentException(
+                        "Paramètre annoté @Session doit être de type Map<String, Object>"
+                    );
+                }
+            }
             
             // CAS 1 : Map<String, Object> pour les données du formulaire
             if (java.util.Map.class.isAssignableFrom(paramType)) {
@@ -173,7 +197,45 @@ public class Invoker {
             args[i] = convertParameter(paramValue, paramType);
         }
         
-        return targetMethod.invoke(instance, args);
+        // Invoquer la méthode
+        Object result = targetMethod.invoke(instance, args);
+        
+        // NOUVEAU : Synchroniser les modifications de la session
+        // Parcourir les paramètres pour trouver ceux annotés @Session
+        for (int i = 0; i < parameters.length; i++) {
+            Parameter param = parameters[i];
+            if (param.isAnnotationPresent(Session.class)) {
+                // Synchroniser la sessionCopy avec la vraie HttpSession
+                synchronizeSession(sessionCopy, httpSession);
+                break;
+            }
+        }
+        
+        return result;
+    }
+    
+    // NOUVEAU : Synchroniser les changements de la Map avec la HttpSession
+    private static void synchronizeSession(java.util.Map<String, Object> sessionCopy, 
+                                          javax.servlet.http.HttpSession httpSession) {
+        // 1. Supprimer les attributs qui ont été retirés de la copie
+        java.util.Enumeration<String> attributeNames = httpSession.getAttributeNames();
+        java.util.List<String> toRemove = new java.util.ArrayList<>();
+        
+        while (attributeNames.hasMoreElements()) {
+            String attrName = attributeNames.nextElement();
+            if (!sessionCopy.containsKey(attrName)) {
+                toRemove.add(attrName);
+            }
+        }
+        
+        for (String attrName : toRemove) {
+            httpSession.removeAttribute(attrName);
+        }
+        
+        // 2. Ajouter/mettre à jour les attributs de la copie dans la session HTTP
+        for (java.util.Map.Entry<String, Object> entry : sessionCopy.entrySet()) {
+            httpSession.setAttribute(entry.getKey(), entry.getValue());
+        }
     }
     
     private static boolean isPrimitiveOrWrapper(Class<?> type) {
