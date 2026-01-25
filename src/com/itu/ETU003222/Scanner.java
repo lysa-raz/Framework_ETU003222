@@ -11,6 +11,8 @@ import com.itu.ETU003222.annotation.UrlMapping;
 import com.itu.ETU003222.annotation.GetMapping;
 import com.itu.ETU003222.annotation.PostMapping;
 import com.itu.ETU003222.annotation.RestApi;
+import com.itu.ETU003222.annotation.AuthRequired;
+import com.itu.ETU003222.annotation.Role;
 import com.itu.ETU003222.model.Mapping;
 
 import java.lang.reflect.Method;
@@ -58,6 +60,15 @@ public class Scanner {
                         mapping.setHttpMethod("GET");
                         mapping.setUrlPattern(url);
                         
+                        // NOUVEAU Sprint 12 : Détection des annotations de droits
+                        if (method.isAnnotationPresent(AuthRequired.class)) {
+                            mapping.setAuthRequired(true);
+                        }
+                        if (method.isAnnotationPresent(Role.class)) {
+                            Role roleAnnotation = method.getAnnotation(Role.class);
+                            mapping.setRequiredRole(roleAnnotation.value());
+                        }
+                        
                         // Clé = GET + URL
                         String key = "GET:" + url;
                         mappings.put(key, mapping);
@@ -73,6 +84,15 @@ public class Scanner {
                         mapping.setMethodName(method.getName());
                         mapping.setHttpMethod("POST");
                         mapping.setUrlPattern(url);
+                        
+                        // NOUVEAU Sprint 12 : Détection des annotations de droits
+                        if (method.isAnnotationPresent(AuthRequired.class)) {
+                            mapping.setAuthRequired(true);
+                        }
+                        if (method.isAnnotationPresent(Role.class)) {
+                            Role roleAnnotation = method.getAnnotation(Role.class);
+                            mapping.setRequiredRole(roleAnnotation.value());
+                        }
                         
                         // Clé = POST + URL
                         String key = "POST:" + url;
@@ -91,6 +111,15 @@ public class Scanner {
                         mapping.setHttpMethod(httpMethod);
                         mapping.setUrlPattern(url);
                         mapping.setRestApi(true); // Marquer comme API REST
+                        
+                        // NOUVEAU Sprint 12 : Détection des annotations de droits
+                        if (method.isAnnotationPresent(AuthRequired.class)) {
+                            mapping.setAuthRequired(true);
+                        }
+                        if (method.isAnnotationPresent(Role.class)) {
+                            Role roleAnnotation = method.getAnnotation(Role.class);
+                            mapping.setRequiredRole(roleAnnotation.value());
+                        }
                         
                         // Clé = METHOD + URL
                         String key = httpMethod + ":" + url;
