@@ -7,7 +7,6 @@ import javax.servlet.annotation.MultipartConfig;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Collection;
-
 import com.itu.ETU003222.model.ModelView;
 import com.itu.ETU003222.model.Mapping;
 import com.itu.ETU003222.model.ApiResponse;
