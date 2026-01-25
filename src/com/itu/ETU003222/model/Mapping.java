@@ -12,6 +12,8 @@ public class Mapping {
     private Pattern regex;
     private String httpMethod = "GET";
     private boolean isRestApi = false; // NOUVEAU
+    private boolean authRequired = false; // NOUVEAU Sprint 12
+    private String requiredRole = null; // NOUVEAU Sprint 12
     
     public Mapping() {
     }
@@ -99,5 +101,22 @@ public class Mapping {
     
     public void setRestApi(boolean isRestApi) {
         this.isRestApi = isRestApi;
+    }
+    
+    // NOUVEAU Sprint 12 : Gestion des droits
+    public boolean isAuthRequired() {
+        return authRequired;
+    }
+    
+    public void setAuthRequired(boolean authRequired) {
+        this.authRequired = authRequired;
+    }
+    
+    public String getRequiredRole() {
+        return requiredRole;
+    }
+    
+    public void setRequiredRole(String requiredRole) {
+        this.requiredRole = requiredRole;
     }
 }

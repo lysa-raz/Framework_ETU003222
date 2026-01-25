@@ -123,6 +123,24 @@ public class FrontServlet extends HttpServlet {
                 request.setAttribute("uploadedFiles", uploadedFiles);
             }
             
+            // NOUVEAU Sprint 12 : Vérification des droits d'accès
+            String accessError = checkAccessRights(mapping, request);
+            if (accessError != null) {
+                // Bloquer l'accès et afficher l'erreur
+                if (mapping.isRestApi()) {
+                    handleRestApiError(new SecurityException(accessError), response);
+                } else {
+                    response.setContentType("text/html");
+                    PrintWriter out = response.getWriter();
+                    out.println("<html><body>");
+                    out.println("<h1>Accès refusé</h1>");
+                    out.println("<p>" + accessError + "</p>");
+                    out.println("<a href='" + request.getContextPath() + "/auth/login'>Se connecter</a>");
+                    out.println("</body></html>");
+                }
+                return;
+            }
+            
             Object result = Invoker.invoke(mapping, request);
             
             // Vérifier si c'est une API REST
@@ -264,6 +282,40 @@ public class FrontServlet extends HttpServlet {
         }
         
         out.flush();
+    }
+    
+    // NOUVEAU Sprint 12 : Vérifier les droits d'accès basés sur les annotations
+    private String checkAccessRights(Mapping mapping, HttpServletRequest request) {
+        try {
+            // Pas de contrôle si aucune annotation de sécurité
+            if (!mapping.isAuthRequired() && mapping.getRequiredRole() == null) {
+                return null; // Accès autorisé
+            }
+            
+            HttpSession session = request.getSession(false);
+            
+            // Vérifier si @AuthRequired ou @Role présent
+            if (mapping.isAuthRequired() || mapping.getRequiredRole() != null) {
+                // Vérifier si l'utilisateur est connecté
+                if (session == null || session.getAttribute("username") == null) {
+                    return "Authentification requise. Veuillez vous connecter.";
+                }
+            }
+            
+            // Vérifier le rôle si @Role est présent
+            if (mapping.getRequiredRole() != null) {
+                String userRole = (String) session.getAttribute("role");
+                
+                if (userRole == null || !userRole.equals(mapping.getRequiredRole())) {
+                    return "Accès refusé. Rôle requis : " + mapping.getRequiredRole() + 
+                           " (votre rôle : " + (userRole != null ? userRole : "aucun") + ")";
+                }
+            }
+            
+            return null; // Accès autorisé
+        } catch (Exception e) {
+            return "Erreur lors de la vérification des droits : " + e.getMessage();
+        }
     }
     
     // Gérer les erreurs REST API avec Gson
