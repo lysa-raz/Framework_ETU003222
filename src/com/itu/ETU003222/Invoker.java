@@ -5,6 +5,7 @@ import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 
 import com.itu.ETU003222.model.Mapping;
 import com.itu.ETU003222.model.FileUpload;
@@ -63,6 +64,10 @@ public class Invoker {
         @SuppressWarnings("unchecked")
         java.util.Map<String, FileUpload> uploadedFiles = 
             (java.util.Map<String, FileUpload>) request.getAttribute("uploadedFiles");
+        
+        // NOUVEAU : Préparer la Map de session pour la synchronisation
+        java.util.Map<String, Object> sessionMap = null;
+        HttpSession httpSession = request.getSession();
         
         for (int i = 0; i < parameters.length; i++) {
             Parameter param = parameters[i];
